@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
+  Button,
   Container,
   FormControl,
   InputLabel,
@@ -11,147 +12,155 @@ import {
   Stack,
   TextField,
   Typography,
+  InputAdornment,
 } from '@mui/material'
 import ProductGrid from '../components/ProductGrid'
-import { fetchProducts } from '../api/products'
+import { getProducts, getProductsLocal } from '../api/products'
 
-function ProductListPage() {
-  const [rows, setRows] = useState([])
-  const [rowCount, setRowCount] = useState(0)
+function Inventory() {
+  const [list, setList] = useState([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchInput, setSearchInput] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [category, setCategory] = useState('')
-  const [categories, setCategories] = useState([])
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 })
-  const [sortModel, setSortModel] = useState([{ field: 'price', sort: 'asc' }])
+  const [err, setErr] = useState('')
+  const [isOffline, setIsOffline] = useState(false)
+
+  const [qInput, setQInput] = useState('')
+  const [qReal, setQReal] = useState('')
+
+  const [cat, setCat] = useState('')
+  const [cats, setCats] = useState([])
+
+  const [pageCfg, setPageCfg] = useState({ page: 0, pageSize: 10 })
+  const [sortCfg, setSortCfg] = useState([{ field: 'price', sort: 'asc' }])
 
   useEffect(() => {
-    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 450)
-    return () => clearTimeout(timer)
-  }, [searchInput])
+    const t = setTimeout(() => setQReal(qInput.trim()), 450)
+    return () => clearTimeout(t)
+  }, [qInput])
 
   const sortOrder = useMemo(() => {
-    const current = sortModel?.[0]
-    if (!current || current.field !== 'price') return 'asc'
-    return current.sort === 'desc' ? 'desc' : 'asc'
-  }, [sortModel])
+    const s = sortCfg?.[0]
+    return s?.sort === 'desc' ? 'desc' : 'asc'
+  }, [sortCfg])
 
   useEffect(() => {
-    let isMounted = true
+    let alive = true
     const run = async () => {
+      console.log('fetching catalog...');
       setLoading(true)
-      setError('')
+      setErr('')
+
+      const args = {
+        page: pageCfg.page + 1,
+        pageSize: pageCfg.pageSize,
+        search: qReal,
+        category: cat,
+        sort: sortOrder,
+      }
+
       try {
-        const data = await fetchProducts({
-          page: paginationModel.page + 1,
-          pageSize: paginationModel.pageSize,
-          search: searchQuery,
-          category,
-          sort: sortOrder,
+        const data = await getProducts(args)
+        if (!alive) return
+        setList(data.items)
+        setTotal(data.total)
+        setIsOffline(false)
+        setCats((prev) => {
+          const s = new Set(prev)
+          data.items.forEach((it) => s.add(it.category))
+          return [...s].filter(Boolean).sort()
         })
-        if (!isMounted) return
-        setRows(data.rows)
-        setRowCount(data.total)
-        setCategories((prev) => {
-          const merged = new Set(prev)
-          data.rows.forEach((row) => merged.add(row.category))
-          return [...merged].filter(Boolean).sort()
+      } catch (e) {
+        if (!alive) return
+        const res = getProductsLocal(args)
+        setList(res.items)
+        setTotal(res.total)
+        setIsOffline(true)
+        setCats((prev) => {
+          const s = new Set(prev)
+          res.items.forEach((it) => s.add(it.category))
+          return [...s].filter(Boolean).sort()
         })
-      } catch (err) {
-        if (!isMounted) return
-        setError(
-          err?.response?.data?.message ||
-            err?.message ||
-            'Could not load products. Please try again.',
-        )
+        setErr('Unable to reach server. Showing local data.')
       } finally {
-        if (isMounted) setLoading(false)
+        if (alive) setLoading(false)
       }
     }
     run()
-    return () => {
-      isMounted = false
-    }
-  }, [paginationModel, searchQuery, category, sortOrder])
+    return () => { alive = false }
+  }, [pageCfg, qReal, cat, sortOrder])
+
+  const tryAgain = async () => {
+    console.log('retrying...');
+    setLoading(true)
+    setErr('')
+    const args = { page: pageCfg.page + 1, pageSize: pageCfg.pageSize, search: qReal, category: cat, sort: sortOrder }
+    try {
+      const data = await getProducts(args)
+      setList(data.items); setTotal(data.total); setIsOffline(false)
+      setCats((p) => {
+        const s = new Set(p); data.items.forEach((it) => s.add(it.category)); return [...s].filter(Boolean).sort()
+      })
+      console.log('back online');
+    } catch (e) {
+      const res = getProductsLocal(args)
+      setList(res.items); setTotal(res.total); setIsOffline(true); setErr('Retry failed.')
+    } finally { setLoading(false) }
+  }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
-      <Stack spacing={2}>
-        <Typography variant="h4" fontWeight={700}>
-          Product Catalog
-        </Typography>
-        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            sx={{ mb: 2 }}
-            alignItems={{ sm: 'center' }}
-          >
-            <TextField
-              label="Search by product name"
-              value={searchInput}
-              onChange={(event) => {
-                setPaginationModel((prev) => ({ ...prev, page: 0 }))
-                setSearchInput(event.target.value)
-              }}
-              size="small"
-              fullWidth
-            />
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 220 } }}>
-              <InputLabel id="category-filter-label">Category</InputLabel>
-              <Select
-                labelId="category-filter-label"
-                label="Category"
-                value={category}
-                onChange={(event) => {
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }))
-                  setCategory(event.target.value)
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {categories.map((item) => (
-                  <MenuItem key={item} value={item}>
-                    {item}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-
-          {error ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          ) : null}
-
-          <Box sx={{ width: '100%', overflowX: 'auto' }}>
-            <ProductGrid
-              rows={rows}
-              rowCount={rowCount}
-              loading={loading}
-              paginationModel={paginationModel}
-              onPaginationModelChange={setPaginationModel}
-              sortModel={sortModel}
-              onSortModelChange={(model) => {
-                if (model.length === 0) {
-                  setSortModel([{ field: 'price', sort: 'asc' }])
-                  return
-                }
-                const [first] = model
-                if (first.field !== 'price') {
-                  setSortModel([{ field: 'price', sort: first.sort || 'asc' }])
-                  return
-                }
-                setSortModel([{ field: 'price', sort: first.sort || 'asc' }])
-              }}
-            />
+    <Box sx={{ bgcolor: '#fafafa', minHeight: '100vh' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 6 } }}>
+        <Stack spacing={4}>
+          <Box>
+            <Typography variant="h3" fontWeight={900} sx={{ color: '#000', letterSpacing: '-1px' }}>
+              Product Catalog
+            </Typography>
+            <Box sx={{ width: 60, height: 4, bgcolor: 'primary.main', mt: 1, borderRadius: 2 }} />
           </Box>
-        </Paper>
-      </Stack>
-    </Container>
+
+          <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, border: '1px solid #eee', bgcolor: '#fff' }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }} alignItems={{ sm: 'center' }}>
+              <TextField 
+                placeholder="Find items..." value={qInput} onChange={(e) => { setPageCfg((p) => ({ ...p, page: 0 })); setQInput(e.target.value) }} 
+                size="small" fullWidth 
+                InputProps={{ startAdornment: <InputAdornment position="start"><span>🔍</span></InputAdornment>, sx: { borderRadius: 2, bgcolor: '#fcfcfc' } }} 
+              />
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 240 } }}>
+                <InputLabel id="cat-label">Category</InputLabel>
+                <Select labelId="cat-label" label="Category" value={cat} onChange={(e) => { setPageCfg((p) => ({ ...p, page: 0 })); setCat(e.target.value) }} displayEmpty renderValue={(val) => val === '' ? 'All categories' : val} startAdornment={<InputAdornment position="start" sx={{ ml: 1 }}><span>📁</span></InputAdornment>} sx={{ borderRadius: 2, bgcolor: '#fcfcfc' }}>
+                  <MenuItem value=""><em>All categories</em></MenuItem>
+                  {cats.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 220 } }}>
+                <InputLabel id="sort-label">Sort by price</InputLabel>
+                <Select labelId="sort-label" label="Sort by price" value={sortOrder} onChange={(e) => { setSortCfg([{ field: 'price', sort: e.target.value }]) }} startAdornment={<InputAdornment position="start" sx={{ ml: 1 }}><span>↕️</span></InputAdornment>} sx={{ borderRadius: 2, bgcolor: '#fcfcfc' }}>
+                  <MenuItem value="asc">Low to high</MenuItem>
+                  <MenuItem value="desc">High to low</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+
+            {err && (
+              <Alert severity="error" variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                  <Box>{err}</Box>
+                  {isOffline && <Button size="small" variant="contained" color="error" onClick={tryAgain} sx={{ textTransform: 'none', ml: 'auto' }}>Retry</Button>}
+                </Stack>
+              </Alert>
+            )}
+
+            <Box sx={{ width: '100%' }}>
+              <ProductGrid 
+                rows={list} rowCount={total} loading={loading} paginationModel={pageCfg} onPaginationModelChange={setPageCfg} sortModel={sortCfg} 
+                onSortModelChange={(m) => m.length ? setSortCfg([{ field: 'price', sort: m[0].sort || 'asc' }]) : setSortCfg([{ field: 'price', sort: 'asc' }])} 
+              />
+            </Box>
+          </Paper>
+        </Stack>
+      </Container>
+    </Box>
   )
 }
 
-export default ProductListPage
+export default Inventory

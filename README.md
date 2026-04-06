@@ -45,24 +45,3 @@ npm run dev
 npm run build
 ```
 
-## Deployment
-
-### Vercel
-
-- `vercel.json` is included for SPA routing.
-- Build command: `npm run build`
-- Output directory: `dist`
-
-### Netlify
-
-- `netlify.toml` is included for SPA routing.
-- Build command: `npm run build`
-- Publish directory: `dist`
-
-## Interview Notes (Short)
-
-- `DataGrid` is configured with `paginationMode="server"` and `sortingMode="server"` so pagination/sort are API-driven.
-- Search input is debounced before API call to reduce request frequency.
-- API response normalization is used because real APIs often have varying field names.
-- Details page supports state-based navigation and fallback API fetch by product id.
-- CORS issue on deployed URL is expected based on assignment note.
