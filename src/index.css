@@ -1,0 +1,23 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  background: #f7f7f8;
+  color: #1d1d1d;
+}
+
+.page-loader {
+  min-height: 40vh;
+  display: grid;
+  place-items: center;
+}
