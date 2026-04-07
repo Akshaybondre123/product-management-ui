@@ -23,7 +23,7 @@ const fmt = new Intl.NumberFormat('en-IN', {
 function ItemView() {
   const { id } = useParams()
   const loc = useLocation()
-  
+
   const [item, setItem] = useState(loc.state?.product || null)
   const [wait, setWait] = useState(!loc.state?.product)
   const [errMsg, setErrMsg] = useState('')
@@ -71,15 +71,15 @@ function ItemView() {
                 <Stack spacing={3}>
                   <Box>
                     <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-                      <Chip 
-                        label={item.category} 
-                        size="small" 
-                        sx={{ bgcolor: '#f0f4f8', color: '#1976d2', fontWeight: 600, border: 'none', borderRadius: 1.5 }} 
+                      <Chip
+                        label={item.category}
+                        size="small"
+                        sx={{ bgcolor: '#f0f4f8', color: '#1976d2', fontWeight: 600, border: 'none', borderRadius: 1.5 }}
                       />
-                      <Chip 
-                        label={item.brand} 
-                        size="small" 
-                        sx={{ bgcolor: '#fff8e1', color: '#f57c00', fontWeight: 600, border: 'none', borderRadius: 1.5 }} 
+                      <Chip
+                        label={item.brand}
+                        size="small"
+                        sx={{ bgcolor: '#fff8e1', color: '#f57c00', fontWeight: 600, border: 'none', borderRadius: 1.5 }}
                       />
                     </Stack>
                     <Typography variant="h3" fontWeight={900} sx={{ color: '#1a1a1a', mb: 1 }}>{item.name}</Typography>

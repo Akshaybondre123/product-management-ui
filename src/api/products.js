@@ -212,7 +212,7 @@ export const getProductDetails = async (id) => {
       const res =
         url === '/cms/products'
           ? await api.get(url, { params: { id } })
-          : await apiClient.get(url)
+          : await api.get(url)
 
       const payload = res.data
       const item =
